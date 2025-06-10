@@ -41,23 +41,23 @@ def calculate_momentum(gecmis_values: Dict[str, List[float]]) -> Dict[str, float
 
 
 def analyze_sentiment(texts: List[str]) -> float:
-    """Analyze sentiment of provided texts using a multilingual BERT model."""
+    """Analyze sentiment of provided texts using a Turkish BERT model."""
     if not texts:
         return 0.0
+
     sentiment_pipeline = pipeline(
         "sentiment-analysis",
-        model="nlptown/bert-base-multilingual-uncased-sentiment",
+        model="savasy/bert-base-turkish-sentiment-cased",
+        tokenizer="savasy/bert-base-turkish-sentiment-cased",
     )
+
     scores = []
     for text in texts:
         result = sentiment_pipeline(text)[0]
-        label = result["label"]
-        if "1" in label or "2" in label:
-            scores.append(-1)
-        elif "3" in label:
-            scores.append(0)
-        else:
-            scores.append(1)
+        label = result.get("label", "")
+        score = result.get("score", 0.0)
+        scores.append(score if "POS" in label.upper() else -score)
+
     return float(np.mean(scores)) if scores else 0.0
 
 

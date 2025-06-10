@@ -1,6 +1,9 @@
 """LLM-based scenario generation utilities."""
 
 import openai
+from config import OPENAI_API_KEY
+
+openai.api_key = OPENAI_API_KEY
 
 
 def generate_scenario(prompt: str) -> str:
@@ -14,4 +17,3 @@ def generate_scenario(prompt: str) -> str:
         return response["choices"][0]["message"]["content"].strip()
     except Exception:
         return ""
-
