@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Streamlit interface for the doom-watch application."""
 
 import datetime
@@ -112,4 +113,10 @@ if st.session_state.history:
     df = pd.DataFrame(st.session_state.history)
     df["Tarih"] = pd.to_datetime(df["Tarih"]).dt.strftime("%Y-%m-%d")
     st.table(df.set_index("Tarih"))
+
+if __name__ == "__main__":
+    import sys
+    import streamlit.web.cli as stcli
+    sys.argv = ["streamlit", "run", __file__]
+    sys.exit(stcli.main())
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Example risk indicator using real data when available.
 # Not intended for real trading or investment decisions.
 

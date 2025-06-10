@@ -73,6 +73,11 @@ Uygulama Başlatma Komutu: Hala EkonomiKiyametSaati klasörünüzün içinde olm
 ```bash
 streamlit run streamlit_app.py
 ```
+Alternatif olarak dosyaya çalıştırma izni verip doğrudan da başlatabilirsiniz:
+```bash
+chmod +x streamlit_app.py
+./streamlit_app.py
+```
 Tarayıcınız Açılacak: Komutu çalıştırdığınızda, varsayılan web tarayıcınız (Chrome, Firefox vb.) otomatik olarak açılacak ve "Türkiye Ekonomisi Kıyamet Saati" uygulaması karşınıza gelecektir.
 
 💡 Uygulamayı Kullanma
