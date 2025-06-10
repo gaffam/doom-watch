@@ -1,7 +1,6 @@
 """Market monitoring utilities for BIST and search trends."""
 
 from typing import List
-
 import logging
 import pandas as pd
 import yfinance as yf
@@ -27,7 +26,7 @@ def check_bist_crash(threshold: float = -0.05) -> bool:
 def check_google_trends(keywords: List[str]) -> bool:
     """Check if search interest spikes above 80% of 12-month max."""
     try:
-        pytrends = TrendReq(hl="tr")
+        pytrends = TrendReq(hl="tr", timeout=(5, 15))
         pytrends.build_payload(keywords, timeframe="today 12-m")
         data = pytrends.interest_over_time()
         if data.empty:
@@ -38,4 +37,3 @@ def check_google_trends(keywords: List[str]) -> bool:
     except Exception as exc:
         logging.warning("google trends failed: %s", exc)
     return False
-

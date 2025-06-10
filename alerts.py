@@ -1,13 +1,12 @@
+import logging
 import requests
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
 
 
 def send_telegram(msg: str) -> None:
-    """Send a Telegram message using bot credentials."""
-    bot_token = "YOUR_BOT_TOKEN"
-    chat_id = "YOUR_CHAT_ID"
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    """Send a Telegram message using configured bot credentials."""
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     try:
-        requests.get(url, params={"text": msg, "chat_id": chat_id}, timeout=10)
-    except Exception:
-        pass
-
+        requests.get(url, params={"text": msg, "chat_id": TELEGRAM_CHAT_ID}, timeout=10)
+    except Exception as exc:
+        logging.warning("telegram send failed: %s", exc)
