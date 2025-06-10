@@ -12,7 +12,7 @@ Temel Özellikler:
 📈 Risk Skoru Hesaplama: Çeşitli ekonomik parametreleri ağırlıklandırarak birleşik bir risk skoru oluşturur.
 📊 Görselleştirme: Risk seviyesini kolay anlaşılır bir çizgi grafik üzerinde gösterir ve risk bölgelerini (düşük, orta, yüksek) belirtir.
 🚨 Anlık Uyarılar: Yüksek risk durumlarında (veya BIST'te ani düşüşlerde) Telegram üzerinden bildirim gönderebilir (ayarları yapılması gerekir).
-⚙️ Kolay Kullanım Arayüzü: Streamlit ile oluşturulmuş basit web arayüzü sayesinde herkesin kolayca kullanabileceği bir yapıya sahiptir.
+⚙️ Kolay Kullanım Arayüzü: Streamlit tabanlı basit bir web arayüzü vardır. Ayrıca JavaFX ile hazırlanmış ayrı bir masaüstü uygulaması da mevcuttur. Bu uygulama Python kodunu arka planda çalıştırır ve JFreeChart kullanarak risk grafiğini gösterir.
 🌐 Çok Dilli Destek: Arayüz Türkçe ve İngilizce olarak kullanılabilir.
 🛠️ Kurulum
 Uygulamayı kendi bilgisayarında çalıştırmak için aşağıdaki adımları sırasıyla takip etmelisin:
@@ -50,6 +50,13 @@ Kütüphaneleri Yükleyin: Klasörün içindeyken, aşağıdaki komutu tek bir s
 pip install streamlit pandas numpy matplotlib requests feedparser transformers torch
 ```
 Bu komut, uygulamanın tüm bağımlılıklarını otomatik olarak indirip kuracaktır. İşlem, internet hızınıza bağlı olarak birkaç dakika sürebilir.
+
+Adım 4: JavaFX Kurulumu
+JavaFX tabanlı masaüstü arayüzü için JDK 17 ve JFreeChart kütüphanesine ihtiyacınız olacak. Maven kullanıyorsanız `pom.xml` dosyasına JavaFX ve JFreeChart bağımlılıklarını ekleyip aşağıdaki komutla derleyebilirsiniz:
+```bash
+mvn javafx:run
+```
+Ya da doğrudan `javac` ile `DoomWatchApp.java` dosyasını derleyip çalıştırabilirsiniz. Uygulama, arka planda `bridge.py` dosyasını çalıştırarak Python kodu ile iletişim kurar.
 
 ### API Anahtarları
 Telegram bildirimleri veya OpenAI tabanlı senaryoları kullanmak isterseniz `config.py` dosyasındaki alanları doldurun veya şu ortam değişkenlerini tanımlayın:
