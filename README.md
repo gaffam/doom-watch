@@ -13,6 +13,7 @@ Temel Özellikler:
 📊 Görselleştirme: Risk seviyesini kolay anlaşılır bir çizgi grafik üzerinde gösterir ve risk bölgelerini (düşük, orta, yüksek) belirtir.
 🚨 Anlık Uyarılar: Yüksek risk durumlarında (veya BIST'te ani düşüşlerde) Telegram üzerinden bildirim gönderebilir (ayarları yapılması gerekir).
 ⚙️ Kolay Kullanım Arayüzü: Streamlit ile oluşturulmuş basit web arayüzü sayesinde herkesin kolayca kullanabileceği bir yapıya sahiptir.
+🌐 Çok Dilli Destek: Arayüz Türkçe ve İngilizce olarak kullanılabilir.
 🛠️ Kurulum
 Uygulamayı kendi bilgisayarında çalıştırmak için aşağıdaki adımları sırasıyla takip etmelisin:
 
@@ -49,6 +50,15 @@ Kütüphaneleri Yükleyin: Klasörün içindeyken, aşağıdaki komutu tek bir s
 pip install streamlit pandas numpy matplotlib requests feedparser transformers torch
 ```
 Bu komut, uygulamanın tüm bağımlılıklarını otomatik olarak indirip kuracaktır. İşlem, internet hızınıza bağlı olarak birkaç dakika sürebilir.
+
+### API Anahtarları
+Telegram bildirimleri veya OpenAI tabanlı senaryoları kullanmak isterseniz `config.py` dosyasındaki alanları doldurun veya şu ortam değişkenlerini tanımlayın:
+
+```
+export TELEGRAM_BOT_TOKEN=YOUR_TOKEN
+export TELEGRAM_CHAT_ID=YOUR_CHAT_ID
+export OPENAI_API_KEY=YOUR_OPENAI_KEY
+```
 🚀 Uygulamayı Çalıştırın!
 Tebrikler! Artık her şey hazır. Uygulamayı başlatmak için son bir adım kaldı:
 

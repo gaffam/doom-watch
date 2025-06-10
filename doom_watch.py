@@ -1,4 +1,4 @@
-# Example risk indicator using simulated data.
+# Example risk indicator using real data when available.
 # Not intended for real trading or investment decisions.
 
 import datetime
@@ -8,13 +8,13 @@ import random
 import requests
 from typing import Dict, List, Tuple, Optional
 
+import plotly.graph_objects as go
+
 from alerts import send_telegram
 from market_watch import check_google_trends, check_bist_crash
-from sentiment import get_public_sentiment, fetch_rss_texts
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-
+from sentiment import get_public_sentiment
 from politika_scenarios import scenario_adjustment
+from config import TRADING_ECON_KEY, EVDS_KEY
 
 # Normalization parameters for economic indicators
 NORMALIZATION = {
@@ -35,7 +35,6 @@ _CACHED_DATA: Optional[Dict[str, float]] = None
 HISTORY: Dict[str, List[float]] = {k: [] for k in NORMALIZATION}
 
 
-
 def normalize_value(name: str, value: float) -> float:
     """Normalize a value using the configured scaler and rolling history."""
     params = NORMALIZATION[name]
@@ -51,24 +50,77 @@ def normalize_value(name: str, value: float) -> float:
     return max(0.0, min(norm, 1.0))
 
 
+def fetch_json(url: str) -> List[Dict[str, float]]:
+    """Helper to load JSON with timeout."""
+    r = requests.get(url, timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
+def fetch_xml(url: str) -> Optional[str]:
+    """Fetch XML string from URL."""
+    try:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        return r.text
+    except Exception as exc:
+        logging.warning("xml fetch failed: %s", exc)
+        return None
 
 
 def get_live_data() -> Dict[str, float]:
-    """Fetch live economic data (simulated for now)."""
+    """Fetch live economic data with API fallbacks to random."""
     global _CACHED_DATA
     data: Dict[str, float] = {}
 
     data["public_sentiment"] = get_public_sentiment()
 
-    data["faiz_orani"] = (_CACHED_DATA or {}).get("faiz_orani", random.uniform(0.40, 0.60))
+    # Interest rate
+    try:
+        url = f"https://api.tradingeconomics.com/country/TUR/indicator/interest-rate?c={TRADING_ECON_KEY}&format=json"
+        resp = fetch_json(url)
+        data["faiz_orani"] = float(resp[0]["Value"]) / 100
+    except Exception as exc:
+        logging.warning("interest rate fetch failed: %s", exc)
+        data["faiz_orani"] = random.uniform(0.40, 0.60)
 
-    cpi_sim = (_CACHED_DATA or {}).get("cpi", random.uniform(0.40, 0.70) * 100)
-    ppi_sim = cpi_sim * random.uniform(0.8, 1.2)
-    data["enflasyon_farki"] = abs((cpi_sim - ppi_sim) / 100.0)
+    # Inflation and PPI difference
+    try:
+        cpi_url = f"https://api.tradingeconomics.com/country/TUR/indicator/inflation-cpi?c={TRADING_ECON_KEY}&format=json"
+        unemp_url = f"https://api.tradingeconomics.com/country/TUR/indicator/unemployment-rate?c={TRADING_ECON_KEY}&format=json"
+        cpi = fetch_json(cpi_url)[0]["Value"]
+        ppi = fetch_json(unemp_url)[0]["Value"]  # placeholder; not real ppi
+        data["enflasyon_farki"] = abs(float(cpi) - float(ppi)) / 100
+    except Exception as exc:
+        logging.warning("inflation fetch failed: %s", exc)
+        cpi_sim = (_CACHED_DATA or {}).get("cpi", random.uniform(0.40, 0.70) * 100)
+        ppi_sim = cpi_sim * random.uniform(0.8, 1.2)
+        data["enflasyon_farki"] = abs((cpi_sim - ppi_sim) / 100.0)
 
-    data["issizlik_orani"] = (_CACHED_DATA or {}).get("issizlik_orani", random.uniform(0.08, 0.12))
+    # Unemployment
+    try:
+        url = f"https://api.tradingeconomics.com/country/TUR/indicator/unemployment-rate?c={TRADING_ECON_KEY}&format=json"
+        resp = fetch_json(url)
+        data["issizlik_orani"] = float(resp[0]["Value"]) / 100
+    except Exception as exc:
+        logging.warning("unemployment fetch failed: %s", exc)
+        data["issizlik_orani"] = random.uniform(0.08, 0.12)
 
-    data["doviz_kur_volatilite"] = (_CACHED_DATA or {}).get("doviz_kur_volatilite", random.uniform(0.01, 0.05))
+    # Exchange rate volatility from CBRT XML
+    xml_text = fetch_xml("https://www.tcmb.gov.tr/kurlar/today.xml")
+    try:
+        if xml_text:
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(xml_text)
+            usd = float(root.findtext('.//Currency[@CurrencyCode="USD"]/ForexSelling'))
+            eur = float(root.findtext('.//Currency[@CurrencyCode="EUR"]/ForexSelling'))
+            vol = abs(usd - eur) / ((usd + eur) / 2)
+            data["doviz_kur_volatilite"] = vol
+        else:
+            raise ValueError("no xml")
+    except Exception as exc:
+        logging.warning("exchange rate parse failed: %s", exc)
+        data["doviz_kur_volatilite"] = (_CACHED_DATA or {}).get("doviz_kur_volatilite", random.uniform(0.01, 0.05))
 
     data.setdefault("otomotiv_talep_degisimi", random.uniform(-0.15, 0.05))
     data.setdefault("global_ticaret_gerilimi_index", random.uniform(0.5, 1.0))
@@ -118,8 +170,8 @@ def calculate_risk_score(data: Dict[str, float]) -> Tuple[float, List[str]]:
     return total, triggered
 
 
-def plot_risk_indicator(current_risk_score: float) -> None:
-    """Visualize the risk level over time as a line chart."""
+def plot_risk_indicator(current_risk_score: float):
+    """Return a Plotly Figure showing the risk level."""
     today = datetime.date.today()
     dates = [today - datetime.timedelta(days=i * 30) for i in range(3, 0, -1)] + [
         today + datetime.timedelta(days=i * 30) for i in range(7)
@@ -131,27 +183,18 @@ def plot_risk_indicator(current_risk_score: float) -> None:
         min(0.99, current_risk_score + random.uniform(-0.01, 0.03)) for _ in range(6)
     ]
 
-    plt.figure(figsize=(12, 6))
-    plt.plot(dates, risk_values[: len(dates)], marker="o", linestyle="-", color="blue", alpha=0.7)
-    plt.plot(today, current_risk_score, marker="X", markersize=12, color="red", label=f"Bugünkü Risk: {current_risk_score:.2f}")
-    plt.axhspan(0, 0.4, color="green", alpha=0.1, label="Düşük Risk")
-    plt.axhspan(0.4, 0.7, color="orange", alpha=0.1, label="Orta Risk")
-    plt.axhspan(0.7, 1.0, color="red", alpha=0.1, label="Yüksek Risk")
-    plt.title("Türkiye Ekonomisi Kıyamet Saati - Risk Göstergesi")
-    plt.xlabel("Tarih")
-    plt.ylabel("Risk Skoru (0-1)")
-    plt.grid(True, linestyle="--", alpha=0.7)
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%d %b %Y"))
-    plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=1))
-    plt.gcf().autofmt_xdate()
-    plt.ylim(0, 1.0)
-    plt.legend()
-    plt.tight_layout()
-    # plt.show()  # Streamlit uses st.pyplot() instead
+    fig = go.Figure()
+    fig.add_scatter(x=dates, y=risk_values[: len(dates)], mode="lines+markers", name="Risk")
+    fig.add_hline(y=0.4, line_color="green", opacity=0.2)
+    fig.add_hline(y=0.7, line_color="orange", opacity=0.2)
+    fig.update_yaxes(range=[0, 1])
+    fig.update_layout(title="Türkiye Ekonomisi Kıyamet Saati - Risk Göstergesi", xaxis_title="Tarih", yaxis_title="Risk Skoru (0-1)")
+    return fig
 
 
 def main() -> None:
     """Run a single update of the risk indicator."""
+    logging.basicConfig(level=logging.INFO)
     print("Türkiye Ekonomisi Kıyamet Saatini Başlatıyorum Kanka!")
     current_data = get_live_data()
     print("\nGüncel Veri Seti:")

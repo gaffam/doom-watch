@@ -5,15 +5,18 @@ from typing import List
 import logging
 import random
 import numpy as np
-import requests
 from transformers import pipeline
-import feedparser  # RSS feed'leri için yeni kütüphanemiz!
+import feedparser
 
-# Senin verdiğin RSS feed URL'leri kanka
+# Additional Turkish RSS feed URLs
 RSS_FEEDS = [
     "https://tr.investing.com/rss/central_banks.rss",
     "https://www.bbc.com/turkce/ekonomi/index.xml",
     "https://www.bbc.com/turkce/basinozeti/index.xml",
+    "https://www.ntv.com.tr/gundem.rss",
+    "https://www.ntv.com.tr/ekonomi.rss",
+    "https://www.haberler.com/rss/ekonomi.xml",
+    "https://www.bloomberght.com/rss/",
     "https://search.worldbank.org/api/v2/news?format=atom&countrycode_exact=TR",
     "https://tr.investing.com/rss/news_1064.rss",
     "https://tr.investing.com/rss/stock_Indices.rss",
@@ -22,37 +25,35 @@ RSS_FEEDS = [
 
 
 def fetch_rss_texts(keywords: List[str] = None, limit: int = 50) -> List[str]:
-    """Belirtilen RSS feed'lerinden haber başlıklarını ve özetlerini çeker."""
-    all_texts: List[str] = []
+    """Return news texts from all feeds with optional keyword filtering."""
+    texts: List[str] = []
     for url in RSS_FEEDS:
         try:
             feed = feedparser.parse(url)
             if feed.bozo:
-                logging.warning("RSS feed parsing error for %s: %s", url, feed.bozo_exception)
+                logging.warning("RSS error %s: %s", url, feed.bozo_exception)
                 continue
             for entry in feed.entries:
-                text_content = ""
+                text = ""
                 if hasattr(entry, "title"):
-                    text_content += entry.title
+                    text += entry.title
                 if hasattr(entry, "summary"):
-                    text_content += " " + entry.summary
+                    text += " " + entry.summary
                 elif hasattr(entry, "description"):
-                    text_content += " " + entry.description
-                if not text_content.strip() or text_content.strip() in all_texts:
+                    text += " " + entry.description
+                if not text.strip() or text.strip() in texts:
                     continue
-                if keywords:
-                    if any(kw.lower() in text_content.lower() for kw in keywords):
-                        all_texts.append(text_content.strip())
-                else:
-                    all_texts.append(text_content.strip())
-                if len(all_texts) >= limit:
+                if keywords and not any(kw.lower() in text.lower() for kw in keywords):
+                    continue
+                texts.append(text.strip())
+                if len(texts) >= limit:
                     break
-            if len(all_texts) >= limit:
+            if len(texts) >= limit:
                 break
         except Exception as exc:
-            logging.warning("Error fetching/parsing RSS feed %s: %s", url, exc)
-    if not all_texts:
-        logging.warning("No texts fetched from RSS feeds. Using synthetic fallback texts.")
+            logging.warning("feed parse failed for %s: %s", url, exc)
+    if not texts:
+        logging.warning("No RSS texts fetched; using fallback samples")
         samples = [
             "Ekonomi gündeminde önemli gelişmeler bekleniyor.",
             "Piyasalarda hafif bir iyimserlik hakim.",
@@ -60,7 +61,7 @@ def fetch_rss_texts(keywords: List[str] = None, limit: int = 50) -> List[str]:
             "Enflasyon rakamları merakla bekleniyor.",
         ]
         return random.sample(samples, k=min(len(samples), 3))
-    return all_texts[:limit]
+    return texts[:limit]
 
 
 def get_sentiment_score(texts: List[str]) -> float:
@@ -102,3 +103,4 @@ if __name__ == "__main__":
     print("\n'Enflasyon' anahtar kelimesiyle ilgili haberler için duygu analizi:")
     enflasyon_sentiment = get_public_sentiment(keywords=["enflasyon", "fiyat"])
     print(f"Enflasyon Duygu Skoru: {enflasyon_sentiment:.2f}")
+
