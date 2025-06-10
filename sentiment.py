@@ -1,0 +1,104 @@
+# Sentiment analysis using a Turkish BERT model.
+"""Sentiment analysis utilities."""
+
+from typing import List
+import logging
+import random
+import numpy as np
+import requests
+from transformers import pipeline
+import feedparser  # RSS feed'leri için yeni kütüphanemiz!
+
+# Senin verdiğin RSS feed URL'leri kanka
+RSS_FEEDS = [
+    "https://tr.investing.com/rss/central_banks.rss",
+    "https://www.bbc.com/turkce/ekonomi/index.xml",
+    "https://www.bbc.com/turkce/basinozeti/index.xml",
+    "https://search.worldbank.org/api/v2/news?format=atom&countrycode_exact=TR",
+    "https://tr.investing.com/rss/news_1064.rss",
+    "https://tr.investing.com/rss/stock_Indices.rss",
+    "https://tr.investing.com/rss/news_95.rss",
+]
+
+
+def fetch_rss_texts(keywords: List[str] = None, limit: int = 50) -> List[str]:
+    """Belirtilen RSS feed'lerinden haber başlıklarını ve özetlerini çeker."""
+    all_texts: List[str] = []
+    for url in RSS_FEEDS:
+        try:
+            feed = feedparser.parse(url)
+            if feed.bozo:
+                logging.warning("RSS feed parsing error for %s: %s", url, feed.bozo_exception)
+                continue
+            for entry in feed.entries:
+                text_content = ""
+                if hasattr(entry, "title"):
+                    text_content += entry.title
+                if hasattr(entry, "summary"):
+                    text_content += " " + entry.summary
+                elif hasattr(entry, "description"):
+                    text_content += " " + entry.description
+                if not text_content.strip() or text_content.strip() in all_texts:
+                    continue
+                if keywords:
+                    if any(kw.lower() in text_content.lower() for kw in keywords):
+                        all_texts.append(text_content.strip())
+                else:
+                    all_texts.append(text_content.strip())
+                if len(all_texts) >= limit:
+                    break
+            if len(all_texts) >= limit:
+                break
+        except Exception as exc:
+            logging.warning("Error fetching/parsing RSS feed %s: %s", url, exc)
+    if not all_texts:
+        logging.warning("No texts fetched from RSS feeds. Using synthetic fallback texts.")
+        samples = [
+            "Ekonomi gündeminde önemli gelişmeler bekleniyor.",
+            "Piyasalarda hafif bir iyimserlik hakim.",
+            "Dolar kuru sakin seyrini sürdürüyor.",
+            "Enflasyon rakamları merakla bekleniyor.",
+        ]
+        return random.sample(samples, k=min(len(samples), 3))
+    return all_texts[:limit]
+
+
+def get_sentiment_score(texts: List[str]) -> float:
+    """Return mean sentiment score for the provided texts."""
+    if not texts:
+        return 0.0
+    try:
+        nlp = pipeline(
+            "sentiment-analysis",
+            model="savasy/bert-base-turkish-sentiment-cased",
+            tokenizer="savasy/bert-base-turkish-sentiment-cased",
+        )
+        results = nlp(texts)
+        scores = [r["score"] * (1 if "POS" in r["label"] else -1) for r in results]
+        return float(np.clip(np.mean(scores), -1.0, 1.0))
+    except Exception as exc:
+        logging.error("Sentiment analysis failed: %s", exc)
+        return 0.0
+
+
+def get_public_sentiment(keywords: List[str] = None) -> float:
+    """Fetch texts from RSS feeds for keywords and compute sentiment score."""
+    texts = fetch_rss_texts(keywords=keywords)
+    if not texts:
+        return 0.0
+    return get_sentiment_score(texts)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
+    print("Genel ekonomi haberleri için duygu analizi:")
+    general_sentiment = get_public_sentiment()
+    print(f"Genel Duygu Skoru: {general_sentiment:.2f}")
+
+    print("\n'Dolar' anahtar kelimesiyle ilgili haberler için duygu analizi:")
+    dolar_sentiment = get_public_sentiment(keywords=["dolar", "kur"])
+    print(f"Dolar Duygu Skoru: {dolar_sentiment:.2f}")
+
+    print("\n'Enflasyon' anahtar kelimesiyle ilgili haberler için duygu analizi:")
+    enflasyon_sentiment = get_public_sentiment(keywords=["enflasyon", "fiyat"])
+    print(f"Enflasyon Duygu Skoru: {enflasyon_sentiment:.2f}")
